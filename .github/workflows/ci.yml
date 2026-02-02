@@ -1,4 +1,4 @@
-name: CI
+name: Build & Test
 
 on:
   push:
@@ -27,6 +27,7 @@ jobs:
     - name: Build and test with TurtleShell (${{ matrix.arch }})
       run: |
         echo "Building rsc-tools for $ARCH..."
+        export CONAN_HOME=/root
         make clean
         make
         
@@ -40,5 +41,6 @@ jobs:
     - name: Test rsc-test tool with JSON output
       run: |
         cd examples/rsc-test
+        export CONAN_HOME=/root
         echo "Testing JSON output..."
         rsc-test comprehensive_test.json --json

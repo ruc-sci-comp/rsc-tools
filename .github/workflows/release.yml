@@ -28,9 +28,11 @@ jobs:
           --platform ${{ matrix.platform }} \
           -v ${{ github.workspace }}:/workspace \
           -w /workspace \
+          -e CONAN_HOME=/root \
           docker.io/lnk2past/turtleshell:latest \
           bash -c "
             echo 'Building rsc-tools for ${{ matrix.arch }}...' &&
+            export CONAN_HOME=/root &&
             make clean &&
             make &&
             echo 'Build complete'
