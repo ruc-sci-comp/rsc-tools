@@ -10,10 +10,3 @@ build
 *.dll*
 
 CMakeUserPresets.json
-
-notes
-quizzes
-assignments
-midterm
-final-project
-project-code

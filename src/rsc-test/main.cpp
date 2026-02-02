@@ -1,3 +1,11 @@
+/// @file main.cpp
+/// @brief Main implementation of the rsc-test tool for automated program testing.
+/// 
+/// This tool executes programs with specified inputs and validates their outputs
+/// against expected results defined in JSON configuration files. It supports
+/// comprehensive testing scenarios including command-line arguments, environment
+/// variables, stdin input, and file system state validation.
+
 #include <CLI/CLI.hpp>
 #include <cpp-subprocess/subprocess.hpp>
 #include <nlohmann/json.hpp>
@@ -12,26 +20,49 @@
 #include <string>
 #include <vector>
 
+/// @struct Options
+/// @brief Command-line options and configuration for the test runner.
 struct Options
 {
+    /// @brief Path to JSON test configuration file
     std::filesystem::path test_configuration{};
+
+    /// @brief Regex pattern to filter test names
     std::string filter_pattern{};
+
+    /// @brief List test names without running
     bool list_tests{};
+
+    /// @brief Output results in JSON format
     bool json_output{};
 };
 
+/// @struct Diagnostic
+/// @brief Represents a test failure diagnostic message.
 struct Diagnostic
 {
+    /// @brief Human-readable diagnostic message
     std::string message{};
 };
 
+/// @struct RunResult
+/// @brief Captures the result of executing a test program.
 struct RunResult
 {
+    /// @brief Captured stdout output
     std::string stdout_text{};
+
+    /// @brief Captured stderr output
     std::string stderr_text{};
+
+    /// @brief Program exit code
     int returncode{};
 };
 
+/// @brief Parse command-line arguments and return configuration options.
+/// @param argc Number of command-line arguments
+/// @param argv Array of command-line argument strings
+/// @return Parsed Options structure containing configuration
 auto cli(const int argc, const char **argv) -> Options
 {
     auto app = CLI::App{"rsc-test"};
@@ -51,6 +82,9 @@ auto cli(const int argc, const char **argv) -> Options
     return options;
 }
 
+/// @brief Normalize output by removing carriage returns and trailing whitespace.
+/// @param s Input string to normalize
+/// @return Normalized string with consistent line endings and trimmed whitespace
 auto normalize_output(std::string s) -> std::string
 {
     auto it = std::remove(s.begin(), s.end(), '\r');
@@ -64,6 +98,12 @@ auto normalize_output(std::string s) -> std::string
     return s;
 }
 
+/// @brief Check if actual stream output matches expected output specification.
+/// @param label Stream label for error messages (e.g., "stdout", "stderr")
+/// @param actual Actual stream output from program execution
+/// @param expected JSON object containing expected output specification
+/// @param diags Vector to store diagnostic messages for mismatches
+/// @return true if output matches expectations, false otherwise
 auto check_stream(const std::string &label, const std::string &actual, const nlohmann::json &expected,
                   std::vector<Diagnostic> &diags) -> bool
 {
@@ -103,6 +143,11 @@ auto check_stream(const std::string &label, const std::string &actual, const nlo
     return true;
 }
 
+/// @brief Execute a test program with specified inputs and capture its output.
+/// @param test JSON object containing test configuration
+/// @param workdir Working directory for program execution
+/// @return RunResult containing captured stdout, stderr, and return code
+/// @throws std::runtime_error if executable is not found or not executable
 auto run_subprocess(const nlohmann::json &test, const std::filesystem::path &workdir) -> RunResult
 {
     auto executable = test.at("executable").get<std::filesystem::path>();
@@ -177,6 +222,8 @@ auto run_subprocess(const nlohmann::json &test, const std::filesystem::path &wor
     }
 }
 
+/// @brief Execute all tests according to the provided configuration options.
+/// @param options Configuration options including test file, filters, and output format
 auto run(const Options &options) -> void
 {
     auto itc = std::ifstream{options.test_configuration};
@@ -364,6 +411,10 @@ auto run(const Options &options) -> void
     }
 }
 
+/// @brief Main entry point for the rsc-test tool.
+/// @param argc Number of command-line arguments
+/// @param argv Array of command-line argument strings
+/// @return Exit code (0 for success, non-zero for failure)
 auto main(const int argc, const char **argv) -> int
 {
     auto options = cli(argc, argv);

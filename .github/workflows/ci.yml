@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    container:
+      image: docker.io/lnk2past/turtleshell:latest
+    
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set architecture environment
+      run: |
+        echo "ARCH=${{ matrix.arch }}" >> $GITHUB_ENV
+
+    - name: Build and test with TurtleShell (${{ matrix.arch }})
+      run: |
+        echo "Building rsc-tools for $ARCH..."
+        make clean
+        make
+        
+        echo "Building test program..."
+        cd examples/rsc-test
+        g++ -std=c++23 -o simple_program simple_program.cpp
+        
+        echo "Running comprehensive test..."
+        rsc-test comprehensive_test.json
+
+    - name: Test rsc-test tool with JSON output
+      run: |
+        cd examples/rsc-test
+        echo "Testing JSON output..."
+        rsc-test comprehensive_test.json --json
