@@ -1,0 +1,9 @@
+{
+    "recommendations": [
+        "ms-vscode.cpptools-extension-pack",
+        "ms-vscode-remote.vscode-remote-extensionpack",
+        "GitHub.remotehub",
+        "GitHub.codespaces",
+        "saoudrizwan.claude-dev",
+    ]
+}
