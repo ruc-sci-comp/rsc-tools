@@ -1,6 +1,6 @@
 /// @file main.cpp
 /// @brief Main implementation of the rsc-test tool for automated program testing.
-/// 
+///
 /// This tool executes programs with specified inputs and validates their outputs
 /// against expected results defined in JSON configuration files. It supports
 /// comprehensive testing scenarios including command-line arguments, environment
@@ -151,7 +151,7 @@ auto check_stream(const std::string &label, const std::string &actual, const nlo
 auto run_subprocess(const nlohmann::json &test, const std::filesystem::path &workdir) -> RunResult
 {
     auto executable = test.at("executable").get<std::filesystem::path>();
-    
+
     auto cmd = std::vector<std::string>{executable.string()};
 
     auto input_cfg = test.value("input", nlohmann::json::object());
@@ -161,31 +161,11 @@ auto run_subprocess(const nlohmann::json &test, const std::filesystem::path &wor
 
     auto stdin_data = input_cfg.value("stdin", std::vector<std::string>{}) | std::views::join_with(std::string("\n")) |
                       std::ranges::to<std::string>();
-    
+
     // Ensure stdin data ends with newline to prevent hanging
-    if (!stdin_data.empty() && stdin_data.back() != '\n') {
+    if (!stdin_data.empty() && stdin_data.back() != '\n')
+    {
         stdin_data += '\n';
-    }
-
-    // Check if executable exists and is accessible
-    if (!std::filesystem::exists(executable))
-    {
-        spdlog::error("ERROR: Executable '{}' does not exist", executable.string());
-        spdlog::error("       Tried to run from working directory: {}", workdir.string());
-        throw std::runtime_error("Executable not found: " + executable.string());
-    }
-
-    if (!std::filesystem::is_regular_file(executable))
-    {
-        spdlog::error("ERROR: '{}' is not a regular file", executable.string());
-        throw std::runtime_error("Executable is not a regular file: " + executable.string());
-    }
-
-    if ((std::filesystem::status(executable).permissions() & std::filesystem::perms::owner_exec) ==
-        std::filesystem::perms::none)
-    {
-        spdlog::error("ERROR: '{}' does not have execute permissions", executable.string());
-        throw std::runtime_error("Executable does not have execute permissions: " + executable.string());
     }
 
     try
@@ -193,11 +173,11 @@ auto run_subprocess(const nlohmann::json &test, const std::filesystem::path &wor
         spdlog::info("Executing: {} in directory: {}", executable.string(), workdir.string());
 
         auto p = subprocess::Popen{cmd,
-            subprocess::cwd{workdir.string()},
-            subprocess::environment{env_map},
-            subprocess::output{subprocess::PIPE},
-            subprocess::error{subprocess::PIPE},
-            subprocess::input{subprocess::PIPE}};
+                                   subprocess::cwd{workdir.string()},
+                                   subprocess::environment{env_map},
+                                   subprocess::output{subprocess::PIPE},
+                                   subprocess::error{subprocess::PIPE},
+                                   subprocess::input{subprocess::PIPE}};
 
         auto result = p.communicate(stdin_data);
 
@@ -298,16 +278,19 @@ auto run(const Options &options) -> void
         auto executable = test.at("executable").get<std::filesystem::path>();
         if (!executable.is_absolute())
         {
-            executable = std::filesystem::canonical(options.test_configuration.parent_path() / executable);
-            // Create symlink with the original executable name in the working directory
-            auto symlink_path = workdir / executable.filename();
+            auto abs_executable = std::filesystem::canonical(options.test_configuration.parent_path() / executable);
+            // Create symlink with the original executable name in the working directory, preserving any nested
+            // directories
+            auto symlink_path = std::filesystem::weakly_canonical(workdir / executable);
+            std::filesystem::create_directories(symlink_path.parent_path());
             try
             {
-                std::filesystem::create_symlink(executable, symlink_path);
+                std::filesystem::create_symlink(abs_executable, symlink_path);
             }
             catch (const std::filesystem::filesystem_error &e)
             {
-                spdlog::warn("Failed to create symlink for '{}': {}", executable.string(), e.what());
+                spdlog::warn("Failed to create symlink {} -> {}: {}", symlink_path.string(), abs_executable.string(),
+                             e.what());
             }
         }
 

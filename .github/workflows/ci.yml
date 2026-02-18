@@ -1,46 +1,45 @@
-name: Build & Test
+name: CI
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
+    tags:
+      - "v*"
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
-    container:
-      image: docker.io/lnk2past/turtleshell:latest
-    
+
     strategy:
       matrix:
-        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            binary_name: rsc-test-linux-amd64
+          - arch: arm64
+            binary_name: rsc-test-linux-arm64
+
+    container:
+      image: docker.io/lnk2past/turtleshell:latest
+      options: --platform linux/${{ matrix.arch }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set architecture environment
-      run: |
-        echo "ARCH=${{ matrix.arch }}" >> $GITHUB_ENV
+      - name: Build
+        run: make clean && make
 
-    - name: Build and test with TurtleShell (${{ matrix.arch }})
-      run: |
-        echo "Building rsc-tools for $ARCH..."
-        export CONAN_HOME=/root
-        make clean
-        make
-        
-        echo "Building test program..."
-        cd examples/rsc-test
-        g++ -std=c++23 -o simple_program simple_program.cpp
-        
-        echo "Running comprehensive test..."
-        rsc-test comprehensive_test.json
+      - name: Package binary
+        run: |
+          mkdir release
+          cp build/src/rsc-test/rsc-test release/${{ matrix.binary_name }}
+          chmod +x release/${{ matrix.binary_name }}
+          tar -czf ${{ matrix.binary_name }}.tar.gz -C release .
 
-    - name: Test rsc-test tool with JSON output
-      run: |
-        cd examples/rsc-test
-        export CONAN_HOME=/root
-        echo "Testing JSON output..."
-        rsc-test comprehensive_test.json --json
+      - name: Upload release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ matrix.binary_name }}.tar.gz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
