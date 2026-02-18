@@ -10,15 +10,17 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
         include:
           - arch: amd64
             platform: linux/amd64
+            runner: ubuntu-24.04
             binary_name: rsc-test-linux-amd64
           - arch: arm64
             platform: linux/arm64
+            runner: ubuntu-24.04-arm
             binary_name: rsc-test-linux-arm64
 
     steps:
