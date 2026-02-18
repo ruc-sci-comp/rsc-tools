@@ -1,49 +1,65 @@
-name: CI
+name: CI / Release
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
     tags:
       - "v*"
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         include:
           - arch: amd64
+            platform: linux/amd64
             binary_name: rsc-test-linux-amd64
           - arch: arm64
+            platform: linux/arm64
             binary_name: rsc-test-linux-arm64
 
-    container:
-      image: docker.io/lnk2past/turtleshell:latest
-      options: --platform linux/${{ matrix.arch }} --user root
-      entrypoint: /bin/bash
-
-    env:
-      CONAN_HOME: /root/.conan2
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Build
-        run: make clean && make
+      - name: Build with TurtleShell (${{ matrix.arch }})
+        run: |
+          docker run --rm \
+            --platform ${{ matrix.platform }} \
+            --user root \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            docker.io/lnk2past/turtleshell:latest \
+            bash -c "make clean && make"
 
+      # Package the binary
       - name: Package binary
         run: |
-          mkdir release
+          mkdir -p release
           cp build/src/rsc-test/rsc-test release/${{ matrix.binary_name }}
           chmod +x release/${{ matrix.binary_name }}
           tar -czf ${{ matrix.binary_name }}.tar.gz -C release .
 
-      - name: Upload release asset
+      # Upload artifact only if this is a tag push
+      - name: Upload artifact
         if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.binary_name }}
+          path: ${{ matrix.binary_name }}.tar.gz
+
+      # Create GitHub release (only once per tag)
+      - name: Create release
+        if: ${{ github.run_attempt == 1 && startsWith(github.ref, 'refs/tags/') }}
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ matrix.binary_name }}.tar.gz
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          files: |
+            ${{ matrix.binary_name }}.tar.gz
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
