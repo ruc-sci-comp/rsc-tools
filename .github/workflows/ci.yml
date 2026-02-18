@@ -20,7 +20,10 @@ jobs:
 
     container:
       image: docker.io/lnk2past/turtleshell:latest
-      options: --platform linux/${{ matrix.arch }}
+      options: --platform linux/${{ matrix.arch }} --user root
+
+    env:
+      CONAN_HOME: /root/.conan2
 
     steps:
       - uses: actions/checkout@v4
