@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 4.2)
 project(rsc-tools)
 
 find_package(CLI11 CONFIG REQUIRED)
-find_package(cpr REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(spdlog REQUIRED)
 
