@@ -21,6 +21,5 @@ class RSC_Tools(ConanFile):
 
     def requirements(self):
         self.requires("cli11/2.6.0")
-        self.requires("cpr/1.14.1")
         self.requires("nlohmann_json/3.12.0")
         self.requires("spdlog/1.17.0")
