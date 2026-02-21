@@ -41,8 +41,8 @@ jobs:
       - name: Package binary
         run: |
           mkdir -p release
-          cp build/src/rsc-test/rsc-test release/${{ matrix.binary_name }}
-          chmod +x release/${{ matrix.binary_name }}
+          cp build/Release/src/rsc-test/rsc-test release/rsc-test
+          chmod +x release/rsc-test
           tar -czf ${{ matrix.binary_name }}.tar.gz -C release .
 
       # Upload artifact only if this is a tag push
