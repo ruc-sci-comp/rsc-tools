@@ -11,11 +11,19 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
+extern "C"
+{
+#include <lauxlib.h>
+#include <lua.h>
+#include <lualib.h>
+}
+
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <print>
 #include <regex>
 #include <string>
 #include <vector>
@@ -57,6 +65,12 @@ struct RunResult
 
     /// @brief Program exit code
     int returncode{};
+};
+
+struct ScriptResult
+{
+    bool passed;
+    std::vector<std::string> diagnostics;
 };
 
 /// @brief Parse command-line arguments and return configuration options.
@@ -110,7 +124,23 @@ auto check_stream(const std::string &label, const std::string &actual, const nlo
     auto exact = expected.value("exact", false);
 
     auto act = actual;
-    auto exp = expected.value("text", std::string{});
+    auto exp = [&]() -> std::string {
+        if (expected.contains("text"))
+        {
+            return expected.at("text").get<std::string>();
+        }
+        else if (expected.contains("from_file"))
+        {
+            auto path = expected.at("from_file").get<std::filesystem::path>();
+            auto file = std::ifstream(path, std::ios::binary | std::ios::ate);
+            auto size = file.tellg();
+            auto buffer = std::string(size, '\0');
+            file.seekg(0);
+            file.read(buffer.data(), size);
+            return buffer;
+        }
+        return "";
+    }();
 
     if (!exact)
     {
@@ -128,7 +158,7 @@ auto check_stream(const std::string &label, const std::string &actual, const nlo
         return true;
     }
 
-    if (expected.contains("text"))
+    if (expected.contains("text") || expected.contains("from_file"))
     {
         if (act != exp)
         {
@@ -200,6 +230,55 @@ auto run_subprocess(const nlohmann::json &test, const std::filesystem::path &wor
         spdlog::error("       Error: {}", e.what());
         throw;
     }
+}
+
+auto run_script(const std::filesystem::path &script, const RunResult &result, const std::filesystem::path &workdir)
+    -> ScriptResult
+{
+    auto L = luaL_newstate();
+    luaL_openlibs(L);
+
+    // Load script
+    if (luaL_dofile(L, script.c_str()) != LUA_OK)
+    {
+        auto err = std::string(lua_tostring(L, -1));
+        lua_close(L);
+        throw std::runtime_error(std::format("Lua script error: {}", err));
+    }
+
+    // Get validate function
+    lua_getglobal(L, "validate");
+
+    if (!lua_isfunction(L, -1))
+    {
+        lua_close(L);
+        throw std::runtime_error("Lua script must define function validate(stdout, stderr, workdir)");
+    }
+
+    // Push arguments
+    lua_pushlstring(L, result.stdout_text.data(), result.stdout_text.size());
+    lua_pushlstring(L, result.stderr_text.data(), result.stderr_text.size());
+    lua_pushstring(L, workdir.c_str());
+
+    // Call validate(stdout, stderr, workdir)
+    if (lua_pcall(L, 3, 1, 0) != LUA_OK)
+    {
+        auto err = std::string(lua_tostring(L, -1));
+        lua_close(L);
+        throw std::runtime_error(std::format("Lua runtime error: {}", err));
+    }
+
+    if (!lua_isboolean(L, -1))
+    {
+        lua_close(L);
+        throw std::runtime_error("validate() must return a boolean");
+    }
+
+    bool passed = lua_toboolean(L, -1);
+
+    lua_close(L);
+
+    return ScriptResult{.passed = passed, .diagnostics = {}};
 }
 
 /// @brief Execute all tests according to the provided configuration options.
@@ -350,6 +429,19 @@ auto run(const Options &options) -> void
                                              "expected exists={}, received exists={}",
                                              p.string(), expected_exists, exists)});
                 ok = false;
+            }
+        }
+
+        if (test.contains("script"))
+        {
+            auto script = test["script"].at("file").get<std::filesystem::path>();
+
+            auto script_result = run_script(script, result, workdir);
+
+            if (!script_result.passed)
+            {
+                ok = false;
+                diags.push_back({"script validation failed"});
             }
         }
 
