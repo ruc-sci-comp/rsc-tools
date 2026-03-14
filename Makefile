@@ -14,6 +14,6 @@ clean:
 	rm -rf build
 
 lua:
-	./scripts/build_lua.sh
+	./scripts/install_lua.sh
 
 ci: lua build install
