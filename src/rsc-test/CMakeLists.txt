@@ -9,7 +9,14 @@ find_library(LUA_STATIC_LIB
     NO_DEFAULT_PATH
 )
 
-target_link_libraries(rsc-test PRIVATE CLI11::CLI11 nlohmann_json::nlohmann_json spdlog::spdlog ${LUA_STATIC_LIB})
+target_link_libraries(rsc-test
+    PRIVATE
+        CLI11::CLI11
+        nlohmann_json::nlohmann_json
+        nlohmann_json_schema_validator
+        spdlog::spdlog
+        ${LUA_STATIC_LIB}
+)
 
 install(TARGETS rsc-test
     RUNTIME DESTINATION bin

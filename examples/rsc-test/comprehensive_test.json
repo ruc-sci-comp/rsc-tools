@@ -3,6 +3,7 @@
         {
             "name": "Comprehensive test - all features",
             "executable": "./simple_program",
+            "returncode": 0,
             "input": {
                 "argv": [
                     "test",
@@ -24,8 +25,10 @@
                         "test-file": "output.txt",
                         "exists": true
                     }
-                ],
-                "returncode": 0
+                ]
+            },
+            "script": {
+                "file": "check.lua"
             }
         }
     ]

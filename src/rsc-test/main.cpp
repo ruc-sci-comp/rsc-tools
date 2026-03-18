@@ -8,6 +8,7 @@
 
 #include <CLI/CLI.hpp>
 #include <cpp-subprocess/subprocess.hpp>
+#include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -71,6 +72,10 @@ struct ScriptResult
 {
     bool passed;
     std::vector<std::string> diagnostics;
+};
+
+constexpr char SCHEMA[] = {
+#embed "schema.json"
 };
 
 /// @brief Parse command-line arguments and return configuration options.
@@ -200,7 +205,7 @@ auto run_subprocess(const nlohmann::json &test, const std::filesystem::path &wor
 
     try
     {
-        spdlog::info("Executing: {} in directory: {}", executable.string(), workdir.string());
+        spdlog::debug("Executing: {} in directory: {}", executable.string(), workdir.string());
 
         auto p = subprocess::Popen{cmd,
                                    subprocess::cwd{workdir.string()},
@@ -288,14 +293,25 @@ auto run(const Options &options) -> void
     auto itc = std::ifstream{options.test_configuration};
     auto config = nlohmann::json::parse(itc);
 
-    // Handle --list option
+    auto validator = nlohmann::json_schema::json_validator{};
+
+    try
+    {
+        auto schema = nlohmann::json::parse(SCHEMA);
+        validator.set_root_schema(schema);
+        validator.validate(config);
+    }
+    catch (const std::exception &e)
+    {
+        spdlog::error("Validation of schema failed, here is why: {}", e.what());
+    }
+
     if (options.list_tests)
     {
         for (const auto &test : config["tests"])
         {
             auto test_name = test.value("name", "<unnamed>");
 
-            // Apply filter if specified
             if (!options.filter_pattern.empty())
             {
                 try
@@ -318,14 +334,12 @@ auto run(const Options &options) -> void
         return;
     }
 
-    // Prepare JSON output if requested
     auto json_results = nlohmann::json::array();
 
     for (const auto &test : config["tests"])
     {
         auto test_name = test.value("name", "<unnamed>");
 
-        // Apply filter if specified
         if (!options.filter_pattern.empty())
         {
             try
@@ -353,13 +367,10 @@ auto run(const Options &options) -> void
         std::filesystem::remove_all(workdir);
         std::filesystem::create_directories(workdir);
 
-        // Create symlink to executable in the test working directory
         auto executable = test.at("executable").get<std::filesystem::path>();
         if (!executable.is_absolute())
         {
             auto abs_executable = std::filesystem::canonical(options.test_configuration.parent_path() / executable);
-            // Create symlink with the original executable name in the working directory, preserving any nested
-            // directories
             auto symlink_path = std::filesystem::weakly_canonical(workdir / executable);
             std::filesystem::create_directories(symlink_path.parent_path());
             try
@@ -373,7 +384,6 @@ auto run(const Options &options) -> void
             }
         }
 
-        // Handle resources - support both old format and new simplified format
         auto resources = test.value("resources", nlohmann::json::array());
         for (const auto &r : resources)
         {
@@ -435,9 +445,7 @@ auto run(const Options &options) -> void
         if (test.contains("script"))
         {
             auto script = test["script"].at("file").get<std::filesystem::path>();
-
             auto script_result = run_script(script, result, workdir);
-
             if (!script_result.passed)
             {
                 ok = false;
@@ -445,7 +453,6 @@ auto run(const Options &options) -> void
             }
         }
 
-        // Prepare JSON result
         auto test_result = nlohmann::json::object();
         test_result["name"] = test_name;
         test_result["passed"] = ok;
@@ -479,10 +486,9 @@ auto run(const Options &options) -> void
         }
     }
 
-    // Output JSON if requested
     if (options.json_output)
     {
-        std::cout << json_results.dump(2) << std::endl;
+        std::println("{}", json_results.dump(2));
     }
 }
 
