@@ -1,7 +1,38 @@
 {
     "tests": [
         {
-            "name": "Comprehensive test - all features",
+            "name": "Test 1",
+            "executable": "./simple_program",
+            "returncode": 0,
+            "input": {
+                "argv": [
+                    "test",
+                    "arg2"
+                ],
+                "stdin": [
+                    "Hello from stdin!"
+                ],
+                "env": {
+                    "TEST_ENV_VAR": "Hello from environment!"
+                }
+            },
+            "output": {
+                "stdout": {
+                    "text": "Arguments: ./simple_program test arg2\nInput: Hello from stdin!\nEnv: Hello from environment!"
+                },
+                "files": [
+                    {
+                        "test-file": "output.txt",
+                        "exists": true
+                    }
+                ]
+            },
+            "script": {
+                "file": "check.lua"
+            }
+        },
+        {
+            "name": "Test 2",
             "executable": "./simple_program",
             "returncode": 0,
             "input": {

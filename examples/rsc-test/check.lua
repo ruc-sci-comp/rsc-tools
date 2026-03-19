@@ -1,3 +1,3 @@
 function validate(stdout, stderr, workdir)
-    return true
+    return false, "just because lol"
 end
