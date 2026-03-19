@@ -80,6 +80,12 @@ auto execute_test(const nlohmann::json &test, const std::filesystem::path &workd
 
 auto run(const rsc::Options &options) -> void
 {
+    if (options.generate)
+    {
+        rsc::generate_configuration(options.test_configuration);
+        return;
+    }
+
     auto config = [&options] {
         try
         {
@@ -136,6 +142,12 @@ auto run(const rsc::Options &options) -> void
         std::filesystem::create_directories(workdir);
 
         auto executable = test.at("executable").get<std::filesystem::path>();
+        if (!std::filesystem::exists(executable))
+        {
+            spdlog::error("Executable {} does not exist!", executable.string());
+            continue;
+        }
+
         if (!executable.is_absolute())
         {
             auto abs_executable = std::filesystem::canonical(options.test_configuration.parent_path() / executable);

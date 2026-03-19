@@ -16,11 +16,13 @@
                 "properties": {
                     "name": {
                         "description": "Name of the test",
-                        "type": "string"
+                        "type": "string",
+                        "default": "test"
                     },
                     "executable": {
                         "description": "The executable to test",
-                        "type": "string"
+                        "type": "string",
+                        "default": "main.exe"
                     },
                     "returncode": {
                         "description": "The expected return code of the application given the inputs",
@@ -81,7 +83,8 @@
                                     "properties": {
                                         "test-file": {
                                             "description": "The file to check",
-                                            "type": "string"
+                                            "type": "string",
+                                            "default": "out.txt"
                                         },
                                         "exists": {
                                             "description": "Whether the file is expected to exist after execution",
@@ -102,7 +105,8 @@
                             "oneOf": [
                                 {
                                     "description": "Map a file into the test context with the same name",
-                                    "type": "string"
+                                    "type": "string",
+                                    "default": "data.txt"
                                 },
                                 {
                                     "description": "Map a file into the test context with a new name",
@@ -114,11 +118,13 @@
                                     "properties": {
                                         "src": {
                                             "description": "Path of the file to map",
-                                            "type": "string"
+                                            "type": "string",
+                                            "default": "a.txt"
                                         },
                                         "dst": {
                                             "description": "Mapped file path",
-                                            "type": "string"
+                                            "type": "string",
+                                            "default": "b.txt"
                                         }
                                     },
                                     "additionalProperties": false
@@ -136,7 +142,8 @@
                         "properties": {
                             "file": {
                                 "description": "Path to the validation script",
-                                "type": "string"
+                                "type": "string",
+                                "default": "check.lua"
                             }
                         },
                         "additionalProperties": false
@@ -152,11 +159,13 @@
             "properties": {
                 "text": {
                     "description": "Raw text to expect",
-                    "type": "string"
+                    "type": "string",
+                    "default": "hello world"
                 },
                 "from_file": {
                     "description": "Path to a file containing the text to expect",
-                    "type": "string"
+                    "type": "string",
+                    "default": "out.data"
                 },
                 "exact": {
                     "description": "If true, require exact match; otherwise normalize by removing '\\r' and trimming trailing whitespace",

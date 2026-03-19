@@ -24,6 +24,9 @@ struct Options
 
     /// @brief Output results in JSON format
     bool json_output{};
+
+    /// @brief Generate a new test file
+    bool generate{};
 };
 
 /// @brief Parse aand validate the test configuration
@@ -31,6 +34,11 @@ struct Options
 /// @return Parsed and validated JSON configuration
 /// @throws std::exception when parsing or validation fails
 auto read_configuration(const std::filesystem::path &test_configuration) -> nlohmann::json;
+
+/// @brief Generate a stubbed test configuration
+/// @param test_configuration Path to save the configuration to
+/// @throws std::runtime_error for a bad write or bad schema
+auto generate_configuration(const std::filesystem::path &test_configuration) -> void;
 
 /// @brief Gets the available tests from the given test configuration
 /// @param filter_pattern Regex pattern to filter tests by name
