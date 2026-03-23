@@ -226,7 +226,7 @@ auto run(const rsc::Options &options) -> void
         {
             const auto &channel_configuration = output.at("stderr");
             auto expected = parse_channel(channel_configuration);
-            ok &= rsc::check_stream("stderr", result.stdout_text, expected, channel_configuration.value("exact", false),
+            ok &= rsc::check_stream("stderr", result.stderr_text, expected, channel_configuration.value("exact", false),
                                     channel_configuration.value("empty", false), diags);
         }
 
