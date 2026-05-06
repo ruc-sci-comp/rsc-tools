@@ -22,7 +22,7 @@
                 },
                 "files": [
                     {
-                        "test-file": "output.txt",
+                        "test_file": "output.txt",
                         "text": "test content"
                     }
                 ]
@@ -53,8 +53,8 @@
                 },
                 "files": [
                     {
-                        "test-file": "output.txt",
-                        "text": "test content"
+                        "test_file": "output.txt",
+                        "from_file": "expected_output.txt"
                     }
                 ]
             },

@@ -191,7 +191,7 @@
         "file_check": {
             "type": "object",
             "required": [
-                "test-file"
+                "test_file"
             ],
             "allOf": [
                 {
@@ -199,7 +199,7 @@
                 }
             ],
             "properties": {
-                "test-file": {
+                "test_file": {
                     "description": "The file to check",
                     "type": "string",
                     "default": "out.txt"

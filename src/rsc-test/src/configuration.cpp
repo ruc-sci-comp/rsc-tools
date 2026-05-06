@@ -188,7 +188,6 @@ auto cli(const int argc, const char **argv) -> Options
     app.add_option("test_configuration", options.test_configuration)->required();
     app.add_option("--filter", options.filter_pattern, "Filter test names using regex pattern");
     app.add_flag("--list", options.list_tests, "List test names without running them");
-    app.add_flag("--json", options.json_output, "Output results as JSON");
     app.add_flag("--generate", options.generate, "Generate a new test file");
     try
     {

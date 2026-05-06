@@ -49,7 +49,6 @@ rsc-test <test-configuration-file> [options]
 |--------|-------------|
 | `--filter <pattern>` | Filter test names using a regex pattern |
 | `--list` | List test names without running them |
-| `--json` | Output results in JSON format |
 | `--help` | Show help message |
 
 ### Examples
@@ -67,11 +66,6 @@ rsc-test <test-configuration-file> [options]
 3. **Run only tests matching a pattern:**
    ```bash
    rsc-test tests/config.json --filter "test.*"
-   ```
-
-4. **Get results in JSON format:**
-   ```bash
-   rsc-test tests/config.json --json
    ```
 
 ## JSON Configuration Structure
@@ -150,8 +144,8 @@ The `output` object defines expected results:
         },
         "files": [
             {
-                "test-file": "output.txt",
-                "exists": true
+                "test_file": "output.txt",
+                "text": "expected content"
             }
         ]
     }
@@ -163,23 +157,24 @@ The `output` object defines expected results:
 - **`returncode`** (integer): Expected exit code (default: 0)
 - **`stdout`** (object): Expected stdout output validation
 - **`stderr`** (object): Expected stderr output validation
-- **`files`** (array): File existence checks
+- **`files`** (array): File content checks
 
 #### Stream Validation Options
 
-For `stdout` and `stderr` objects:
+For `stdout`, `stderr`, and `files` objects:
 
 - **`text`** (string): Expected output text
+- **`from_file`** (string): Path to a file containing the expected output
 - **`exact`** (boolean): Whether to perform exact matching (default: false)
-  - When false, whitespace normalization is applied
-- **`empty`** (boolean): Whether the stream should be empty (default: false)
+  - When false, `\r` is stripped and trailing whitespace is trimmed
+- **`empty`** (boolean): Whether the output should be empty
 
 #### File Validation
 
 Each file object in the `files` array:
 
-- **`test-file`** (string): Path to check (relative to test working directory)
-- **`exists`** (boolean): Whether the file should exist (default: false)
+- **`test_file`** (string): Path to check (relative to test working directory)
+- Plus any one of the stream validation options above to specify expected content
 
 ### Resources Configuration
 
@@ -228,8 +223,8 @@ The `resources` array specifies files to copy for test execution:
                 },
                 "files": [
                     {
-                        "test-file": "calc.log",
-                        "exists": true
+                        "test_file": "calc.log",
+                        "text": "Result: 8"
                     }
                 ]
             },
@@ -266,7 +261,7 @@ Each test runs in a temporary directory (`/tmp/rsc-test` on Unix systems). The t
 
 ## Output Formats
 
-### Text Output (Default)
+### Output Format
 
 ```
 Running test: Basic arithmetic test
@@ -277,26 +272,7 @@ FAIL
   return code mismatch:
       expected: 0
       received: 1
-  stdout mismatch:
+  stdout mismatch at line 1:
       expected: "Processing complete"
       received: "Error: File not found"
-```
-
-### JSON Output
-
-```json
-[
-  {
-    "name": "Basic arithmetic test",
-    "passed": true
-  },
-  {
-    "name": "File processing test",
-    "passed": false,
-    "errors": [
-      "return code mismatch:\n    expected: 0\n    received: 1",
-      "stdout mismatch:\n    expected: \"Processing complete\"\n    received: \"Error: File not found\""
-    ]
-  }
-]
 ```

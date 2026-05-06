@@ -14,7 +14,6 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
-#include <print>
 #include <ranges>
 #include <regex>
 #include <string>
@@ -121,7 +120,6 @@ auto run(const rsc::Options &options) -> bool
         return true;
     }
 
-    auto json_results = nlohmann::json::array();
     auto all_passed = true;
 
     for (const auto &test : config["tests"])
@@ -132,10 +130,7 @@ auto run(const rsc::Options &options) -> bool
             continue;
         }
 
-        if (!options.json_output)
-        {
-            spdlog::info("Running test: {}", test_name);
-        }
+        spdlog::info("Running test: {}", test_name);
 
         auto workdir = std::filesystem::temp_directory_path() / "rsc-test";
 
@@ -145,7 +140,10 @@ auto run(const rsc::Options &options) -> bool
         auto executable = test.at("executable").get<std::filesystem::path>();
         if (!std::filesystem::exists(executable))
         {
-            spdlog::error("Executable {} does not exist!", executable.string());
+            auto msg = std::format("executable '{}' does not exist", executable.string());
+            all_passed = false;
+            spdlog::error("FAIL");
+            spdlog::error("  {}", msg);
             continue;
         }
 
@@ -233,7 +231,7 @@ auto run(const rsc::Options &options) -> bool
 
         for (const auto &f : output.value("files", nlohmann::json::array()))
         {
-            auto filename = f.at("test-file").get<std::string>();
+            auto filename = f.at("test_file").get<std::string>();
             auto p = workdir / filename;
             auto label = std::format("file '{}'", filename);
 
@@ -266,47 +264,23 @@ auto run(const rsc::Options &options) -> bool
             }
         }
 
-        auto test_result = nlohmann::json::object();
-        test_result["name"] = test_name;
-        test_result["passed"] = ok;
-
-        if (!ok)
-        {
-            auto error_messages = nlohmann::json::array();
-            for (const auto &d : diags)
-            {
-                error_messages.push_back(d.message);
-            }
-            test_result["errors"] = error_messages;
-        }
-
         if (!ok)
         {
             all_passed = false;
         }
 
-        json_results.push_back(test_result);
-
-        if (!options.json_output)
+        if (ok)
         {
-            if (ok)
+            spdlog::info("PASS");
+        }
+        else
+        {
+            spdlog::error("FAIL");
+            for (const auto &d : diags)
             {
-                spdlog::info("PASS");
-            }
-            else
-            {
-                spdlog::error("FAIL");
-                for (const auto &d : diags)
-                {
-                    spdlog::error("  {}", d.message);
-                }
+                spdlog::error("  {}", d.message);
             }
         }
-    }
-
-    if (options.json_output)
-    {
-        std::println("{}", json_results.dump(2));
     }
 
     return all_passed;

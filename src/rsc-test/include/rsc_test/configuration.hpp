@@ -22,9 +22,6 @@ struct Options
     /// @brief List test names without running
     bool list_tests{};
 
-    /// @brief Output results in JSON format
-    bool json_output{};
-
     /// @brief Generate a new test file
     bool generate{};
 };

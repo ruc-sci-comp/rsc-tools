@@ -53,10 +53,10 @@ rsc-test 03_environment_test.json
 ```
 
 ### 04_file_creation_test.json
-Tests file creation and existence checking.
+Tests file creation and content checking.
 
 **Features demonstrated:**
-- File existence verification
+- File content verification
 - Program file creation
 - Working directory isolation
 
@@ -111,19 +111,6 @@ rsc-test 07_filter_test.json --filter "Filter.*"
 rsc-test 07_filter_test.json --filter "Another"
 ```
 
-### 08_json_output_test.json
-Tests JSON output format.
-
-**Features demonstrated:**
-- JSON result output
-- Structured test results
-- Machine-readable output
-
-**Run:**
-```bash
-rsc-test 08_json_output_test.json --json
-```
-
 ## Test Program
 
 The `simple_program.cpp` is a test program that demonstrates various behaviors:
@@ -163,8 +150,8 @@ The `simple_program.cpp` is a test program that demonstrates various behaviors:
         "returncode": 0,
         "files": [
           {
-            "test-file": "filename.txt",
-            "exists": true
+            "test_file": "filename.txt",
+            "text": "expected content"
           }
         ]
       },
@@ -181,13 +168,6 @@ The `simple_program.cpp` is a test program that demonstrates various behaviors:
 
 - `--list`: List test names without running them
 - `--filter <pattern>`: Filter tests using regex pattern
-- `--json`: Output results as JSON
-
-### Output Options
-
-- **Normal output**: Human-readable test results
-- **JSON output**: Machine-readable structured results
-- **List mode**: Show available test names
 
 ### Resource Handling
 
@@ -212,7 +192,7 @@ Resources can be specified in two formats:
 2. **Resource copying**: Use resources to provide input files to tests
 3. **Environment variables**: Set up test-specific environment
 4. **Error conditions**: Test both success and failure cases
-5. **File operations**: Verify file creation, modification, and existence
+5. **File operations**: Verify file creation and content
 6. **Output matching**: Use exact matching for precise verification
 7. **Filtering**: Use regex patterns to run specific test subsets
 
@@ -227,9 +207,3 @@ rsc-test 07_filter_test.json --list
 
 # Run filtered tests
 rsc-test 07_filter_test.json --filter "Filter.*"
-
-# Get JSON output
-rsc-test 08_json_output_test.json --json
-
-# Combine options
-rsc-test 07_filter_test.json --filter "Filter.*" --json
