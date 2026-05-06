@@ -1,15 +1,13 @@
-#include "rsc_test/configuration.hpp"
+#include "rsc_test/config.hpp"
 
-#include <CLI/CLI.hpp>
 #include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
 
-#include <cstdlib>
+#include <format>
 #include <fstream>
-#include <iostream>
-#include <print>
 #include <regex>
 #include <stdexcept>
+#include <unordered_map>
 
 namespace rsc
 {
@@ -179,29 +177,5 @@ auto get_tests(const std::regex &filter_pattern, const nlohmann::json::array_t &
         test_names.insert(test_name);
     }
     return test_names;
-}
-
-auto cli(const int argc, const char **argv) -> Options
-{
-    auto app = CLI::App{"rsc-test"};
-    auto options = Options{};
-    app.add_option("test_configuration", options.test_configuration)->required();
-    app.add_option("--filter", options.filter_pattern, "Filter test names using regex pattern");
-    app.add_flag("--list", options.list_tests, "List test names without running them");
-    app.add_flag("--generate", options.generate, "Generate a new test file");
-    try
-    {
-        app.parse(argc, argv);
-    }
-    catch (const CLI::ParseError &e)
-    {
-        std::exit(app.exit(e));
-    }
-    catch (const std::regex_error &e)
-    {
-        std::println(std::cerr, "Invalid regex pattern:\n{}", e.what());
-        std::exit(1);
-    }
-    return options;
 }
 } // namespace rsc

@@ -1,4 +1,4 @@
-add_executable(rsc-test src/main.cpp src/configuration.cpp src/runner.cpp src/script.cpp src/stream_utils.cpp )
+add_executable(rsc-test src/main.cpp src/cli.cpp src/config.cpp src/runner.cpp)
 
 target_include_directories(rsc-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(rsc-test SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/src/external)

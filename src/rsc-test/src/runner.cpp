@@ -1,9 +1,12 @@
 #include "rsc_test/runner.hpp"
+#include "rsc_test/config.hpp"
 
-#include "rsc_test/configuration.hpp"
-#include "rsc_test/diagnostic.hpp"
-#include "rsc_test/script.hpp"
-#include "rsc_test/stream_utils.hpp"
+extern "C"
+{
+#include <lauxlib.h>
+#include <lua.h>
+#include <lualib.h>
+}
 
 #include <cpp-subprocess/subprocess.hpp>
 #include <nlohmann/json.hpp>
@@ -11,11 +14,14 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <optional>
 #include <ranges>
 #include <regex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -23,7 +29,136 @@ using namespace std::literals;
 
 namespace rsc
 {
-auto execute_test(const nlohmann::json &test, const std::filesystem::path &workdir) -> rsc::RunResult
+
+struct Diagnostic
+{
+    std::string message{};
+};
+
+struct RunResult
+{
+    std::string stdout_text{};
+    std::string stderr_text{};
+    int returncode{};
+};
+
+auto normalize_output(std::string s) -> std::string
+{
+    auto it = std::remove(s.begin(), s.end(), '\r');
+    s.erase(it, s.end());
+
+    while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back())))
+    {
+        s.pop_back();
+    }
+
+    return s;
+}
+
+auto check_stream(const std::string &label, std::string actual, std::string expected, const bool exact,
+                  const bool empty, std::vector<Diagnostic> &diags) -> bool
+{
+    if (!exact)
+    {
+        actual = normalize_output(actual);
+        expected = normalize_output(expected);
+    }
+
+    if (empty)
+    {
+        if (!actual.empty())
+        {
+            diags.push_back({std::format("{} expected empty, received {} bytes", label, actual.size())});
+            return false;
+        }
+        return true;
+    }
+
+    if (actual != expected)
+    {
+        auto split_lines = [](const std::string &s) {
+            return s | std::views::split('\n')
+                     | std::views::transform([](auto rng) { return std::string(rng.begin(), rng.end()); })
+                     | std::ranges::to<std::vector<std::string>>();
+        };
+
+        auto exp_lines = split_lines(expected);
+        auto act_lines = split_lines(actual);
+        auto n = std::max(exp_lines.size(), act_lines.size());
+        for (auto i = size_t{0}; i < n; ++i)
+        {
+            const auto &exp = i < exp_lines.size() ? exp_lines[i] : std::string{};
+            const auto &act = i < act_lines.size() ? act_lines[i] : std::string{};
+            if (exp != act)
+            {
+                diags.push_back({std::format("{} mismatch at line {}:\n"
+                                             "    expected: \"{}\"\n"
+                                             "    received: \"{}\"",
+                                             label, i + 1, exp, act)});
+                break;
+            }
+        }
+        return false;
+    }
+
+    return true;
+}
+
+auto run_validation_script(const std::filesystem::path &script, const RunResult &result,
+                           const std::filesystem::path &workdir) -> std::optional<Diagnostic>
+{
+    auto L = luaL_newstate();
+    luaL_openlibs(L);
+
+    if (luaL_dofile(L, script.c_str()) != LUA_OK)
+    {
+        auto err = std::string(lua_tostring(L, -1));
+        lua_close(L);
+        throw std::runtime_error(std::format("Lua script error: {}", err));
+    }
+
+    lua_getglobal(L, "validate");
+
+    if (!lua_isfunction(L, -1))
+    {
+        lua_close(L);
+        throw std::runtime_error("Lua script must define function validate(stdout, stderr, workdir)");
+    }
+
+    lua_pushlstring(L, result.stdout_text.data(), result.stdout_text.size());
+    lua_pushlstring(L, result.stderr_text.data(), result.stderr_text.size());
+    lua_pushstring(L, workdir.c_str());
+
+    if (lua_pcall(L, 3, 2, 0) != LUA_OK)
+    {
+        auto err = std::string(lua_tostring(L, -1));
+        lua_close(L);
+        throw std::runtime_error(std::format("Lua runtime error: {}", err));
+    }
+
+    if (!lua_isboolean(L, -2))
+    {
+        lua_close(L);
+        throw std::runtime_error("validate() must at least return a boolean");
+    }
+
+    auto passed = lua_toboolean(L, -2);
+    if (!passed)
+    {
+        if (lua_gettop(L) != 2 || !lua_isstring(L, -1))
+        {
+            lua_close(L);
+            return Diagnostic{"Unknown validation error, failure reason not provided"};
+        }
+        auto diag = Diagnostic{std::format("Script validation failed:{}", lua_tostring(L, -1))};
+        lua_close(L);
+        return diag;
+    }
+    lua_close(L);
+    return std::nullopt;
+}
+
+auto execute_test(const nlohmann::json &test, const std::filesystem::path &workdir) -> RunResult
 {
     auto executable = test.at("executable").get<std::filesystem::path>();
 
@@ -37,7 +172,6 @@ auto execute_test(const nlohmann::json &test, const std::filesystem::path &workd
     auto stdin_data = input_cfg.value("stdin", std::vector<std::string>{}) | std::views::join_with(std::string("\n")) |
                       std::ranges::to<std::string>();
 
-    // Ensure stdin data ends with newline to prevent hanging
     if (!stdin_data.empty() && stdin_data.back() != '\n')
     {
         stdin_data += '\n';
@@ -56,9 +190,9 @@ auto execute_test(const nlohmann::json &test, const std::filesystem::path &workd
 
         auto result = p.communicate(stdin_data);
 
-        return rsc::RunResult{.stdout_text = std::string({result.first.buf.data(), result.first.length}),
-                              .stderr_text = std::string({result.second.buf.data(), result.second.length}),
-                              .returncode = p.retcode()};
+        return RunResult{.stdout_text = std::string({result.first.buf.data(), result.first.length}),
+                         .stderr_text = std::string({result.second.buf.data(), result.second.length}),
+                         .returncode = p.retcode()};
     }
     catch (const subprocess::CalledProcessError &e)
     {
@@ -77,18 +211,18 @@ auto execute_test(const nlohmann::json &test, const std::filesystem::path &workd
     }
 }
 
-auto run(const rsc::Options &options) -> bool
+auto run(const Options &options) -> bool
 {
     if (options.generate)
     {
-        rsc::generate_configuration(options.test_configuration);
+        generate_configuration(options.test_configuration);
         return true;
     }
 
     auto config = [&options] {
         try
         {
-            return rsc::read_configuration(options.test_configuration);
+            return read_configuration(options.test_configuration);
         }
         catch (const std::exception &e)
         {
@@ -100,7 +234,7 @@ auto run(const rsc::Options &options) -> bool
     auto tests = [&options, &config] -> std::set<std::string> {
         try
         {
-            return rsc::get_tests(options.filter_pattern, config.at("tests"));
+            return get_tests(options.filter_pattern, config.at("tests"));
         }
         catch (const std::regex_error &e)
         {
@@ -178,10 +312,10 @@ auto run(const rsc::Options &options) -> bool
             }
         }
 
-        auto result = rsc::execute_test(test, workdir);
+        auto result = execute_test(test, workdir);
 
         auto ok = true;
-        auto diags = std::vector<rsc::Diagnostic>{};
+        auto diags = std::vector<Diagnostic>{};
 
         auto expected_rc = test.value("returncode", 0);
         if (result.returncode != expected_rc)
@@ -217,16 +351,16 @@ auto run(const rsc::Options &options) -> bool
         {
             const auto &channel_configuration = output.at("stdout");
             auto expected = parse_channel(channel_configuration);
-            ok &= rsc::check_stream("stdout", result.stdout_text, expected, channel_configuration.value("exact", false),
-                                    channel_configuration.value("empty", false), diags);
+            ok &= check_stream("stdout", result.stdout_text, expected, channel_configuration.value("exact", false),
+                               channel_configuration.value("empty", false), diags);
         }
 
         if (output.contains("stderr"))
         {
             const auto &channel_configuration = output.at("stderr");
             auto expected = parse_channel(channel_configuration);
-            ok &= rsc::check_stream("stderr", result.stderr_text, expected, channel_configuration.value("exact", false),
-                                    channel_configuration.value("empty", false), diags);
+            ok &= check_stream("stderr", result.stderr_text, expected, channel_configuration.value("exact", false),
+                               channel_configuration.value("empty", false), diags);
         }
 
         for (const auto &f : output.value("files", nlohmann::json::array()))
@@ -249,14 +383,13 @@ auto run(const rsc::Options &options) -> bool
             fh.read(actual.data(), size);
 
             auto expected = parse_channel(f);
-            ok &= rsc::check_stream(label, actual, expected, f.value("exact", false),
-                                    f.value("empty", false), diags);
+            ok &= check_stream(label, actual, expected, f.value("exact", false), f.value("empty", false), diags);
         }
 
         if (test.contains("script"))
         {
             auto script = test["script"].at("file").get<std::filesystem::path>();
-            auto script_result = rsc::run_validation_script(script, result, workdir);
+            auto script_result = run_validation_script(script, result, workdir);
             if (script_result)
             {
                 ok = false;
