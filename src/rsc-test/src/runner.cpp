@@ -78,12 +78,12 @@ auto execute_test(const nlohmann::json &test, const std::filesystem::path &workd
     }
 }
 
-auto run(const rsc::Options &options) -> void
+auto run(const rsc::Options &options) -> bool
 {
     if (options.generate)
     {
         rsc::generate_configuration(options.test_configuration);
-        return;
+        return true;
     }
 
     auto config = [&options] {
@@ -118,10 +118,11 @@ auto run(const rsc::Options &options) -> void
     if (options.list_tests)
     {
         spdlog::info("Available tests:\n{}", tests | std::views::join_with("\n"sv) | std::ranges::to<std::string>());
-        return;
+        return true;
     }
 
     auto json_results = nlohmann::json::array();
+    auto all_passed = true;
 
     for (const auto &test : config["tests"])
     {
@@ -232,18 +233,26 @@ auto run(const rsc::Options &options) -> void
 
         for (const auto &f : output.value("files", nlohmann::json::array()))
         {
-            auto p = workdir / f.at("test-file").get<std::string>();
+            auto filename = f.at("test-file").get<std::string>();
+            auto p = workdir / filename;
+            auto label = std::format("file '{}'", filename);
 
-            auto exists = std::filesystem::exists(p);
-            auto expected_exists = f.value("exists", false);
-
-            if (exists != expected_exists)
+            if (!std::filesystem::exists(p))
             {
-                diags.push_back({std::format("file check failed for '{}': "
-                                             "expected exists={}, received exists={}",
-                                             p.string(), expected_exists, exists)});
+                diags.push_back({std::format("{} does not exist", label)});
                 ok = false;
+                continue;
             }
+
+            auto fh = std::ifstream(p, std::ios::binary | std::ios::ate);
+            auto size = fh.tellg();
+            auto actual = std::string(size, '\0');
+            fh.seekg(0);
+            fh.read(actual.data(), size);
+
+            auto expected = parse_channel(f);
+            ok &= rsc::check_stream(label, actual, expected, f.value("exact", false),
+                                    f.value("empty", false), diags);
         }
 
         if (test.contains("script"))
@@ -271,6 +280,11 @@ auto run(const rsc::Options &options) -> void
             test_result["errors"] = error_messages;
         }
 
+        if (!ok)
+        {
+            all_passed = false;
+        }
+
         json_results.push_back(test_result);
 
         if (!options.json_output)
@@ -294,5 +308,7 @@ auto run(const rsc::Options &options) -> void
     {
         std::println("{}", json_results.dump(2));
     }
+
+    return all_passed;
 }
 } // namespace rsc

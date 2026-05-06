@@ -16,5 +16,5 @@
 auto main(const int argc, const char **argv) -> int
 {
     auto options = rsc::cli(argc, argv);
-    rsc::run(options);
+    return rsc::run(options) ? 0 : 1;
 }

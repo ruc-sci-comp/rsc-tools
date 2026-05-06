@@ -76,23 +76,7 @@
                                 "description": "The set of files produced by the application",
                                 "type": "array",
                                 "items": {
-                                    "type": "object",
-                                    "required": [
-                                        "test-file"
-                                    ],
-                                    "properties": {
-                                        "test-file": {
-                                            "description": "The file to check",
-                                            "type": "string",
-                                            "default": "out.txt"
-                                        },
-                                        "exists": {
-                                            "description": "Whether the file is expected to exist after execution",
-                                            "type": "boolean",
-                                            "default": false
-                                        }
-                                    },
-                                    "additionalProperties": false
+                                    "$ref": "#/$defs/file_check"
                                 }
                             }
                         },
@@ -154,8 +138,7 @@
         }
     },
     "$defs": {
-        "stream_check": {
-            "type": "object",
+        "content_check": {
             "properties": {
                 "text": {
                     "description": "Raw text to expect",
@@ -173,12 +156,11 @@
                     "default": false
                 },
                 "empty": {
-                    "description": "Require the stream to be empty (overrides other expectations)",
+                    "description": "Require the output to be empty (overrides other expectations)",
                     "type": "boolean",
                     "default": false
                 }
             },
-            "additionalProperties": false,
             "anyOf": [
                 {
                     "required": [
@@ -196,6 +178,34 @@
                     ]
                 }
             ]
+        },
+        "stream_check": {
+            "type": "object",
+            "allOf": [
+                {
+                    "$ref": "#/$defs/content_check"
+                }
+            ],
+            "unevaluatedProperties": false
+        },
+        "file_check": {
+            "type": "object",
+            "required": [
+                "test-file"
+            ],
+            "allOf": [
+                {
+                    "$ref": "#/$defs/content_check"
+                }
+            ],
+            "properties": {
+                "test-file": {
+                    "description": "The file to check",
+                    "type": "string",
+                    "default": "out.txt"
+                }
+            },
+            "unevaluatedProperties": false
         }
     },
     "additionalProperties": false

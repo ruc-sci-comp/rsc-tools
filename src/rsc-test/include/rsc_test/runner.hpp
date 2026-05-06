@@ -18,6 +18,7 @@ auto execute_test(const nlohmann::json &test, const std::filesystem::path &workd
 
 /// @brief Execute all tests according to the provided configuration options.
 /// @param options Configuration options including test file, filters, and output format
-auto run(const rsc::Options &options) -> void;
+/// @return true if all tests passed, false if any test failed
+auto run(const rsc::Options &options) -> bool;
 
 } // namespace rsc

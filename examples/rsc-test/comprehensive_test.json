@@ -23,7 +23,7 @@
                 "files": [
                     {
                         "test-file": "output.txt",
-                        "exists": true
+                        "text": "test content"
                     }
                 ]
             },
@@ -54,7 +54,7 @@
                 "files": [
                     {
                         "test-file": "output.txt",
-                        "exists": true
+                        "text": "test content"
                     }
                 ]
             },

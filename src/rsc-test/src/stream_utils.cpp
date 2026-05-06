@@ -37,16 +37,13 @@ auto check_stream(const std::string &label, std::string actual, std::string expe
         return true;
     }
 
-    if (!expected.empty())
+    if (actual != expected)
     {
-        if (actual != expected)
-        {
-            diags.push_back({std::format("{} mismatch:\n"
-                                         "    expected: \"{}\"\n"
-                                         "    received: \"{}\"",
-                                         label, expected, actual)});
-            return false;
-        }
+        diags.push_back({std::format("{} mismatch:\n"
+                                     "    expected: \"{}\"\n"
+                                     "    received: \"{}\"",
+                                     label, expected, actual)});
+        return false;
     }
 
     return true;
